@@ -7,7 +7,8 @@ import pickle
 import tensorflow as tf
 from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
-from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.applications import MobileNetV2
+base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
 from tensorflow.keras.models import Model
 
 # ────────────────────────────────────────────────

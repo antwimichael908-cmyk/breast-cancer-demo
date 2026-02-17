@@ -1,17 +1,30 @@
-# app.py - Professional Breast Cancer Image Classifier
+# app.py - Breast Cancer Classifier with Training & Professional UI
 
 import streamlit as st
-import numpy as np
-from PIL import Image
+import os
+import zipfile
 import pickle
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    classification_report, confusion_matrix
+)
+from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
-from tensorflow.keras.applications.resnet50 import preprocess_input
-from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.applications.resnet50 import preprocess_input
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.models import Model
+from tqdm import tqdm
+from PIL import Image
 
 # ────────────────────────────────────────────────
-# Page Config & Theme
+# Page Config & Professional Theme
 # ────────────────────────────────────────────────
 st.set_page_config(
     page_title="Breast Imaging Classifier",
@@ -20,21 +33,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for professional look
+# Custom CSS
 st.markdown("""
     <style>
     .main {background-color: #f8f9fa;}
     .stButton>button {
         background-color: #0d6efd;
         color: white;
-        border: none;
-        padding: 0.6rem 1.5rem;
         border-radius: 8px;
-        font-weight: 500;
+        padding: 0.6rem 1.5rem;
     }
-    .stButton>button:hover {
-        background-color: #0b5ed7;
-    }
+    .stButton>button:hover {background-color: #0b5ed7;}
     .result-card {
         background: white;
         border-radius: 12px;
@@ -44,112 +53,125 @@ st.markdown("""
     }
     .malignant {border-left: 6px solid #dc3545;}
     .benign    {border-left: 6px solid #198754;}
-    h1 {color: #0d6efd; font-weight: 600;}
+    h1, h2, h3 {color: #0d6efd;}
     .disclaimer {font-size: 0.9rem; color: #6c757d; margin-top: 2rem;}
     </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# Load model & encoder
+# CONFIGURATION (change these if needed)
 # ────────────────────────────────────────────────
-@st.cache_resource
-def load_model_and_encoder():
-    try:
-        with open("saved_models/rf_breast_model.pkl", 'rb') as f:
-            model = pickle.load(f)
-        with open("saved_models/label_encoder.pkl", 'rb') as f:
-            le = pickle.load(f)
-        return model, le
-    except FileNotFoundError:
-        st.error("Model files not found in 'saved_models/' folder.")
-        st.stop()
+SAVE_DIR = "saved_models"
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+MODEL_PATH     = os.path.join(SAVE_DIR, "rf_breast_model.pkl")
+LE_PATH        = os.path.join(SAVE_DIR, "label_encoder.pkl")
+IMG_SIZE       = (224, 224)
+BATCH_SIZE     = 32
 
 # ────────────────────────────────────────────────
-# Feature extractor (recreated, no .h5 file)
+# Load / Create Extractor (recreated – no .h5 needed)
 # ────────────────────────────────────────────────
 @st.cache_resource
 def get_feature_extractor():
-    with st.spinner("Initializing deep feature extractor..."):
-        base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
-        extractor = Model(inputs=base_model.input, outputs=base_model.output)
+    st.info("Initializing ResNet50 feature extractor... (one-time)")
+    base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+    extractor = Model(inputs=base_model.input, outputs=base_model.output)
     return extractor
 
-model, le = load_model_and_encoder()
 extractor = get_feature_extractor()
 
 # ────────────────────────────────────────────────
-# Prediction function
+# Load trained model & encoder
+# ────────────────────────────────────────────────
+@st.cache_resource
+def load_trained_model():
+    if not os.path.exists(MODEL_PATH) or not os.path.exists(LE_PATH):
+        st.warning("Trained model files not found in 'saved_models/'. Please train first.")
+        return None, None
+    
+    with open(MODEL_PATH, 'rb') as f:
+        model = pickle.load(f)
+    with open(LE_PATH, 'rb') as f:
+        le = pickle.load(f)
+    
+    st.success("Trained model loaded successfully")
+    return model, le
+
+model, le = load_trained_model()
+
+# ────────────────────────────────────────────────
+# Prediction Function
 # ────────────────────────────────────────────────
 def predict_image(pil_image):
-    img = pil_image.resize((224, 224))
+    if model is None or le is None:
+        return "Model not loaded", 0.0
+    
+    img = pil_image.resize(IMG_SIZE)
     arr = img_to_array(img)
     arr = np.expand_dims(arr, axis=0)
     arr = preprocess_input(arr)
-
+    
     feats = extractor.predict(arr, verbose=0)
     pooled = tf.keras.layers.GlobalAveragePooling2D()(feats)
     features = pooled.numpy()
-
+    
     pred_class = model.predict(features)[0]
     pred_proba = model.predict_proba(features)[0]
-
+    
     label = le.inverse_transform([pred_class])[0]
     malignant_prob = pred_proba[1] if len(pred_proba) > 1 else pred_proba[0]
-
+    
     return label, malignant_prob
 
 # ────────────────────────────────────────────────
 # SIDEBAR
 # ────────────────────────────────────────────────
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/000000/medical-doctor.png", width=80)
+    st.image("https://img.icons8.com/color/96/medical-doctor.png", width=80)
     st.title("Breast Imaging AI")
-    st.markdown("**Version 1.0** – Research Prototype")
+    st.markdown("**Research Prototype v1.0**")
     st.divider()
-    st.subheader("About this tool")
+    st.subheader("About")
     st.markdown("""
-    • Uses ResNet50 deep features + Random Forest  
-    • Trained on ultrasound & mammogram images  
-    • Best used as second opinion support  
+    • Deep features from ResNet50  
+    • Classifier: Random Forest  
+    • Trained on ultrasound + mammogram images  
+    • For research/educational use only
     """)
     st.divider()
-    st.caption("For research & educational purposes only")
+    st.caption("© 2026 Research Project")
 
 # ────────────────────────────────────────────────
-# MAIN CONTENT
+# MAIN INTERFACE
 # ────────────────────────────────────────────────
 st.title("Breast Imaging Cancer Classifier")
-st.markdown("Upload an ultrasound or mammogram image to receive an AI-assisted prediction.")
+st.markdown("Upload an ultrasound or mammogram image for AI-assisted prediction.")
 
-col_upload, col_info = st.columns([3, 1])
+tab1, tab2 = st.tabs(["📤 Predict", "🛠 Train / Retrain"])
 
-with col_upload:
+# ─── PREDICT TAB ─────────────────────────────────────
+with tab1:
     uploaded_file = st.file_uploader(
-        "Select breast imaging file",
+        "Upload image (PNG/JPG/JPEG)",
         type=["png", "jpg", "jpeg"],
-        help="Accepted formats: PNG, JPG, JPEG. Max recommended size: 10 MB"
+        help="Recommended: clear region-of-interest images"
     )
 
-with col_info:
-    st.info("**Important**  \nThis tool is **not** a substitute for professional medical diagnosis.")
-
-if uploaded_file is not None:
-    try:
+    if uploaded_file is not None:
         image = Image.open(uploaded_file).convert("RGB")
-        
-        # Show image
         st.image(image, caption="Uploaded image", use_column_width=True)
 
-        # Analyze button
         if st.button("Analyze Image", type="primary", use_container_width=True):
-            with st.spinner("Processing image... (may take 5–30 seconds on first use)"):
-                label, prob = predict_image(image)
+            if model is None:
+                st.error("No trained model found. Please go to 'Train / Retrain' tab first.")
+            else:
+                with st.spinner("Analyzing... (5–30 seconds)"):
+                    label, prob = predict_image(image)
 
-            st.markdown("### Prediction Result")
+                st.markdown("### Result")
+                card_class = "malignant" if label.lower() == "malignant" else "benign"
 
-            card_class = "malignant" if label.lower() == "malignant" else "benign"
-
-            with st.container():
                 st.markdown(f'<div class="result-card {card_class}">', unsafe_allow_html=True)
                 
                 if label.lower() == "malignant":
@@ -163,21 +185,25 @@ if uploaded_file is not None:
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            st.info("""
-            **Interpretation guidance**  
-            • High malignant probability → further clinical evaluation recommended  
-            • Low probability → still requires radiologist review  
-            This is an AI research prototype with known limitations.
-            """)
+                st.info("**Note:** This is a research prototype. Always confirm with clinical evaluation.")
 
-    except Exception as e:
-        st.error("Error during image processing")
-        st.write("Details:", str(e))
+# ─── TRAIN / RETRAIN TAB ───────────────────────────────
+with tab2:
+    st.header("Train or Retrain Model")
+    st.warning("Training on cloud is slow and resource-limited. Use local machine for full training.")
+    
+    if st.button("Start Training (Demo Mode)", disabled=True):
+        st.info("Full training disabled on cloud for performance reasons.")
+    
+    st.markdown("**Recommended workflow:**")
+    st.markdown("1. Train locally on your computer using the original script")
+    st.markdown("2. Copy saved_models/ folder to deployment folder")
+    st.markdown("3. Push to GitHub → redeploy app")
 
-# Footer disclaimer
+# ─── FOOTER DISCLAIMER ────────────────────────────────
 st.markdown("""
-<div class="disclaimer">
-    <strong>Disclaimer:</strong> This application is for research and educational purposes only. 
-    It is not a certified medical device and should never be used as the sole basis for clinical decisions.
+<div class="disclaimer" style="margin-top: 3rem;">
+    <strong>Disclaimer:</strong> This is a research/educational prototype only.  
+    It is not a medical device and should never replace professional clinical diagnosis.
 </div>
 """, unsafe_allow_html=True)

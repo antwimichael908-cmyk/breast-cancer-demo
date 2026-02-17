@@ -2,46 +2,48 @@ import streamlit as st
 import numpy as np
 from PIL import Image
 import pickle
-import os
 import tensorflow as tf
-from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.applications.resnet50 import preprocess_input
-from tensorflow.keras.models import Model
 from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.models import Model
 
 # ────────────────────────────────────────────────
-# CONFIG – paths relative to the deployed app
+# CONFIGURATION
 # ────────────────────────────────────────────────
 MODEL_PATH = "saved_models/rf_breast_model.pkl"
 LE_PATH    = "saved_models/label_encoder.pkl"
 
 IMG_SIZE   = (224, 224)
 
+st.set_page_config(
+    page_title="Breast Cancer Image Classifier",
+    page_icon="🩺",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
+
 # ────────────────────────────────────────────────
-# Load trained Random Forest + LabelEncoder (cached)
+# Load model & encoder (cached – loads only once)
 # ────────────────────────────────────────────────
 @st.cache_resource
 def load_model_and_encoder():
-    if not os.path.exists(MODEL_PATH):
-        st.error(f"Model file not found: {MODEL_PATH}")
+    try:
+        with open(MODEL_PATH, 'rb') as f:
+            model = pickle.load(f)
+        with open(LE_PATH, 'rb') as f:
+            le = pickle.load(f)
+        return model, le
+    except FileNotFoundError:
+        st.error("Model files not found in 'saved_models/' folder.")
         st.stop()
-    if not os.path.exists(LE_PATH):
-        st.error(f"Label encoder not found: {LE_PATH}")
-        st.stop()
-
-    with open(MODEL_PATH, 'rb') as f:
-        model = pickle.load(f)
-    with open(LE_PATH, 'rb') as f:
-        le = pickle.load(f)
-    
-    return model, le
 
 # ────────────────────────────────────────────────
-# Create feature extractor on-the-fly (no .h5 file needed)
+# Create ResNet50 feature extractor (no saved .h5 needed)
 # ────────────────────────────────────────────────
 @st.cache_resource
 def get_feature_extractor():
-    st.info("Creating ResNet50 feature extractor... (first time only)")
+    st.info("Initializing ResNet50 feature extractor... (one-time operation)")
     base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
     extractor = Model(inputs=base_model.input, outputs=base_model.output)
     return extractor
@@ -58,12 +60,10 @@ def predict_image(pil_image):
     arr = np.expand_dims(arr, axis=0)
     arr = preprocess_input(arr)
 
-    # Extract features
     feats = extractor.predict(arr, verbose=0)
     pooled = tf.keras.layers.GlobalAveragePooling2D()(feats)
     features = pooled.numpy()
 
-    # Predict
     pred_class = model.predict(features)[0]
     pred_proba = model.predict_proba(features)[0]
 
@@ -73,37 +73,55 @@ def predict_image(pil_image):
     return label, malignant_prob
 
 # ────────────────────────────────────────────────
-# Streamlit UI
+# USER INTERFACE
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="Breast Cancer Classifier", layout="centered")
-
-st.title("Breast Ultrasound & Mammogram Cancer Classifier")
+st.title("🩺 Breast Ultrasound & Mammogram Cancer Classifier")
 st.markdown("""
-Upload an ultrasound or mammogram image to get a prediction.  
-**Note:** This is a research prototype — not for clinical use.
+This tool classifies breast ultrasound or mammogram images as **benign** or **malignant**.  
+**Important disclaimer:**  
+This is a **research prototype** — NOT a medical device.  
+Always consult a qualified radiologist or oncologist for diagnosis.
 """)
 
-uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"])
+with st.sidebar:
+    st.header("About")
+    st.markdown("""
+    - Model: ResNet50 features + Random Forest  
+    - Trained on: BUSI + CBIS-DDSM (ultrasound + mammogram)  
+    - Prediction time: 5–30 seconds (first time slower)  
+    """)
+
+uploaded_file = st.file_uploader(
+    "Upload breast ultrasound or mammogram image",
+    type=["png", "jpg", "jpeg"],
+    help="Supported: PNG, JPG, JPEG. Max size ~10 MB recommended."
+)
 
 if uploaded_file is not None:
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Uploaded image", use_column_width=True)
+    try:
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="Uploaded image", use_column_width=True)
 
-    with st.spinner("Analyzing image... (may take 5–30 seconds on first run)"):
-        try:
+        with st.spinner("Analyzing image..."):
             label, prob = predict_image(image)
-            
+
+        st.subheader("Prediction Result")
+
+        col1, col2 = st.columns(2)
+        with col1:
             if label.lower() == "malignant":
-                st.error(f"**Prediction: MALIGNANT**")
-                st.markdown(f"Malignant confidence: **{prob:.1%}**")
+                st.error("**Malignant** (suggestive of cancer)")
             else:
-                st.success(f"**Prediction: {label.upper()}**")
-                st.markdown(f"Malignant confidence: **{prob:.1%}**")
-                
-            st.info("Confidence is based on the model's probability output.")
-        except Exception as e:
-            st.error("Error during prediction")
-            st.write(str(e))
+                st.success(f"**{label.capitalize()}** (likely benign)")
+
+        with col2:
+            st.metric("Malignant Confidence", f"{prob:.1%}")
+
+        st.info("This confidence score is the model's probability output. False results are possible.")
+
+    except Exception as e:
+        st.error("Error during analysis")
+        st.write("Details:", str(e))
 
 st.markdown("---")
-st.caption("Built with ResNet50 features + Random Forest | Prototype only")
+st.caption("Prototype built for research/educational purposes | February 2026")

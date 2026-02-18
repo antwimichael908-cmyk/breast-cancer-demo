@@ -131,27 +131,24 @@ model = load_model()
 # ────────────────────────────────────────────────
 def extract_features(img):
     try:
+        # Convert to grayscale
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img_resized = cv2.resize(img_gray, (224, 224))
-
-        mean_intensity = float(np.mean(img_resized))
-        std_intensity = float(np.std(img_resized))
-
-        distances = [1, 2, 3]
-        angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
-        glcm = graycomatrix(img_resized, distances, angles, levels=256, symmetric=True, normed=True)
-
-        texture_feats = {}
-        for prop in ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'ASM']:
-            vals = graycoprops(glcm, prop)
-            for i, d in enumerate(distances):
-                for j, a in enumerate(angles):
-                    key = f"{prop}_d{d}_a{j:.2f}"
-                    value = float(vals[i, j])
-                    # Replace NaN/inf with 0 (common in uniform texture regions)
-                    if not np.isfinite(value):
-                        value = 0.0
-                    texture_feats[key] = value
+        
+        # Resize to exactly what the model expects (most likely 128×128)
+        img_resized = cv2.resize(img_gray, (128, 128))
+        
+        # Flatten → 128 * 128 = 16384 features
+        features_flat = img_resized.flatten().astype(np.float32)
+        
+        # Create DataFrame with 16384 columns (named feat_0 to feat_16383)
+        feature_dict = {f"pixel_{i}": float(v) for i, v in enumerate(features_flat)}
+        df = pd.DataFrame([feature_dict])
+        
+        return df
+    
+    except Exception as e:
+        st.error(f"Image processing failed: {str(e)}")
+        return None
 
         # Shape features
         _, thresh = cv2.threshold(img_resized, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)

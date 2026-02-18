@@ -100,13 +100,13 @@ st.markdown("""
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/000000/breast-cancer-ribbon.png", width=80)
     st.title("BreastCare AI")
- 
+  
     st.markdown("**Purpose**")
     st.caption("AI-supported classification of breast ultrasound images")
- 
+  
     st.markdown("**Model**")
     st.caption("Random Forest • Trained on BUSI dataset")
- 
+  
     st.info("**Research prototype only**\n\nNot for clinical diagnosis.", icon="⚠️")
 
 # ────────────────────────────────────────────────
@@ -126,26 +126,44 @@ def load_model():
 model = load_model()
 
 # ────────────────────────────────────────────────
-# Safer feature extraction (flattened 128×128 grayscale – matches 16384 features)
+# Fixed feature extraction – flattened 128×128 grayscale
 # ────────────────────────────────────────────────
 def extract_features(img):
     try:
+        # Convert to grayscale
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Resize to 128×128 → exactly 16384 pixels
         img_resized = cv2.resize(img_gray, (128, 128))
+        
+        # Safety check
+        if img_resized.shape != (128, 128):
+            raise ValueError(f"Resized image has wrong shape: {img_resized.shape}")
+        
+        # Flatten → 16384 values
         features_flat = img_resized.flatten().astype(np.float32)
         
-        # Optional: normalize pixel values (uncomment if training data was normalized)
+        # Optional: normalize to [0,1] range (uncomment if your training data was normalized)
         # features_flat = features_flat / 255.0
         
+        # Build dictionary with 16384 keys
         feature_dict = {f"pixel_{i}": float(v) for i, v in enumerate(features_flat)}
+        
+        # Create DataFrame – 1 row, 16384 columns
         df = pd.DataFrame([feature_dict])
+        
+        # Final safety check
+        if df.shape[1] != 16384:
+            raise ValueError(f"Generated wrong number of features: {df.shape[1]} (expected 16384)")
+        
         return df
+    
     except Exception as e:
-        st.error(f"Image processing failed: {str(e)}")
+        st.error(f"Feature extraction failed: {str(e)}")
         return None
 
 # ────────────────────────────────────────────────
-# Main content
+# Main content – attractive drag-and-drop uploader
 # ────────────────────────────────────────────────
 st.markdown("### Upload Breast Ultrasound Image")
 uploaded_file = st.file_uploader(
@@ -162,20 +180,21 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
     st.markdown("---")
- 
+  
     st.subheader("Image Preview")
     st.image(uploaded_file, caption=f"{uploaded_file.name} • {uploaded_file.size / 1024:.1f} KB", use_column_width=True)
- 
+  
     if st.button("Analyze Image", type="primary", use_container_width=True):
         with st.spinner("Analyzing image..."):
+            # Read image
             img_array = np.frombuffer(uploaded_file.getvalue(), np.uint8)
             img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-           
+            
             if img is None:
                 st.error("Failed to decode the uploaded image. Please try a different file.")
             else:
                 features = extract_features(img)
-               
+                
                 if features is None:
                     st.error("Could not extract features from this image.")
                 else:
@@ -183,9 +202,7 @@ if uploaded_file is not None:
                         raw_pred = model.predict(features)[0]
                         probs = model.predict_proba(features)[0]
 
-                        # ────────────────────────────────────────────────
                         # Handle both integer index and string label
-                        # ────────────────────────────────────────────────
                         if isinstance(raw_pred, (int, np.integer)):
                             pred_idx = int(raw_pred)
                             label_map = {0: "Benign", 1: "Malignant", 2: "Normal"}
@@ -202,9 +219,7 @@ if uploaded_file is not None:
                         else:
                             raise ValueError(f"Unexpected prediction type: {type(raw_pred)}")
 
-                        # ────────────────────────────────────────────────
                         # Display result
-                        # ────────────────────────────────────────────────
                         if "malignant" in label.lower():
                             cls = "malignant"
                             emoji = "🔴"
@@ -227,15 +242,15 @@ if uploaded_file is not None:
                             <p>{msg}</p>
                         </div>
                         """, unsafe_allow_html=True)
-                     
+                      
                         probs_df = pd.DataFrame({
                             "Class": ["Benign", "Malignant", "Normal"],
                             "Confidence (%)": probs * 100
                         }).set_index("Class")
-                     
+                      
                         st.subheader("Confidence Breakdown")
                         st.bar_chart(probs_df, color="#3b82f6", height=300)
-                   
+                    
                     except Exception as ve:
                         st.error(f"Prediction error:\n{str(ve)}")
                         # Uncomment for debugging

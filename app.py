@@ -1,4 +1,4 @@
-# app.py - BreastCare AI with background image (background.jpg)
+# app.py - BreastCare AI with your local background.jpg
 import streamlit as st
 import pandas as pd
 import joblib
@@ -20,34 +20,37 @@ st.set_page_config(
 # ────────────────────────────────────────────────
 # Load background image as base64
 # ────────────────────────────────────────────────
-def get_base64_of_file(file_path):
+def get_base64_image(file_path):
     try:
         with open(file_path, "rb") as f:
             return base64.b64encode(f.read()).decode()
     except FileNotFoundError:
         return None
+    except Exception as e:
+        st.warning(f"Error reading background image: {e}")
+        return None
 
-# Name of your background image file (must be in the same folder as app.py)
-BG_FILENAME = "background.jpg"
+# Your background image filename (must match exactly!)
+BG_FILENAME = "ultrasound-bg.jpg"  # ← change to .png if needed
 
-bg_base64 = get_base64_of_file(BG_FILENAME)
+bg_base64 = get_base64_image(BG_FILENAME)
 
 if bg_base64:
-    bg_data_url = f"data:image/jpeg;base64,{bg_base64}"
+    bg_url = f"data:image/jpeg;base64,{bg_base64}"
+    st.success("Background image loaded successfully!")
 else:
-    # Fallback gradient if image is missing
-    bg_data_url = "linear-gradient(135deg, #e0f2fe, #bfdbfe)"
-    st.warning("Background image 'background.jpg' not found — using fallback gradient")
+    bg_url = "linear-gradient(135deg, #e0f2fe, #bfdbfe)"
+    st.warning(f"Background image '{BG_FILENAME}' not found — using fallback gradient")
 
 # ────────────────────────────────────────────────
-# Modern CSS with your background image + overlay
+# Apply background + styling
 # ────────────────────────────────────────────────
 st.markdown(f"""
     <style>
     [data-testid="stAppViewContainer"] {{
         background-image: 
-            linear-gradient(rgba(245, 245, 250, 0.84), rgba(245, 245, 250, 0.88)),
-            url("{bg_data_url}");
+            linear-gradient(rgba(245, 245, 250, 0.82), rgba(245, 245, 250, 0.88)),
+            url("{bg_url}");
         background-size: cover;
         background-position: center center;
         background-repeat: no-repeat;
@@ -61,7 +64,6 @@ st.markdown(f"""
     section[data-testid="stSidebar"] > div:first-child {{
         background: linear-gradient(135deg, rgba(30,58,138,0.82), rgba(59,130,246,0.65));
         backdrop-filter: blur(8px);
-        border-right: 1px solid rgba(255,255,255,0.15);
     }}
 
     .result-card {{
@@ -87,11 +89,10 @@ st.markdown(f"""
     .stButton > button {{
         background: linear-gradient(90deg, #3b82f6, #60a5fa);
         color: white;
-        border: none;
         border-radius: 12px;
         padding: 14px 32px;
         font-weight: 600;
-        transition: all 0.3s ease;
+        transition: all 0.3s;
         box-shadow: 0 4px 12px rgba(59,130,246,0.3);
     }}
 
@@ -106,7 +107,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# Load the trained model
+# Load model
 # ────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
@@ -119,17 +120,17 @@ def load_model():
 model = load_model()
 
 # ────────────────────────────────────────────────
-# Feature extraction function
+# Feature extraction (same as before)
 # ────────────────────────────────────────────────
 def extract_features(img):
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img_resized = cv2.resize(img_gray, (224, 224))
     
     mean_intensity = np.mean(img_resized)
-    std_intensity  = np.std(img_resized)
+    std_intensity = np.std(img_resized)
     
     distances = [1, 2, 3]
-    angles    = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+    angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
     glcm = graycomatrix(img_resized, distances, angles, levels=256, symmetric=True, normed=True)
     
     texture_feats = {}
@@ -231,7 +232,7 @@ if uploaded_file is not None:
                 st.error(f"Prediction failed: {ex}")
                 st.info("Try a different image or check file format.")
 
-# Footer disclaimer
+# Footer
 st.markdown("---")
 st.markdown(
     '<div class="disclaimer">'

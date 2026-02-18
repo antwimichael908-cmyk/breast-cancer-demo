@@ -1,5 +1,4 @@
-# app.py - Lively version with background image, overlay & micro-animations
-
+# app.py - BreastCare AI with background image (background.jpg)
 import streamlit as st
 import pandas as pd
 import joblib
@@ -7,44 +6,41 @@ import cv2
 import numpy as np
 from skimage.feature import graycomatrix, graycoprops
 import base64
-from pathlib import Path
-import base64
-from pathlib import Path
 
 # ────────────────────────────────────────────────
-# Page config + favicon
+# Page configuration
 # ────────────────────────────────────────────────
 st.set_page_config(
-    page_title="BreastCare AI – Smart Ultrasound Classifier",
+    page_title="BreastCare AI – Ultrasound Classifier",
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ────────────────────────────────────────────────
-# Helper: Load local image as base64 for CSS background
-# ────────────────────────────────────────────────
-
-
-# ────────────────────────────────────────────────
-# Load local background image as base64
+# Load background image as base64
 # ────────────────────────────────────────────────
 def get_base64_of_file(file_path):
-    with open(file_path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+    try:
+        with open(file_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except FileNotFoundError:
+        return None
 
-# Use this filename (must match exactly what you saved)
+# Name of your background image file (must be in the same folder as app.py)
 BG_FILENAME = "background.jpg"
 
-try:
-    bg_base64 = get_base64_of_file(BG_FILENAME)
+bg_base64 = get_base64_of_file(BG_FILENAME)
+
+if bg_base64:
     bg_data_url = f"data:image/jpeg;base64,{bg_base64}"
-except FileNotFoundError:
-    st.warning("Background image not found — using fallback color")
-    bg_data_url = "linear-gradient(135deg, #e0f2fe, #bfdbfe)"  # light blue fallback
+else:
+    # Fallback gradient if image is missing
+    bg_data_url = "linear-gradient(135deg, #e0f2fe, #bfdbfe)"
+    st.warning("Background image 'background.jpg' not found — using fallback gradient")
 
 # ────────────────────────────────────────────────
-# Apply background with overlay for readability
+# Modern CSS with your background image + overlay
 # ────────────────────────────────────────────────
 st.markdown(f"""
     <style>
@@ -53,7 +49,7 @@ st.markdown(f"""
             linear-gradient(rgba(245, 245, 250, 0.84), rgba(245, 245, 250, 0.88)),
             url("{bg_data_url}");
         background-size: cover;
-        background-position: center;
+        background-position: center center;
         background-repeat: no-repeat;
         background-attachment: fixed;
     }}
@@ -62,63 +58,12 @@ st.markdown(f"""
         background: rgba(0,0,0,0);
     }}
 
-    /* Optional: make sidebar pop more */
     section[data-testid="stSidebar"] > div:first-child {{
         background: linear-gradient(135deg, rgba(30,58,138,0.82), rgba(59,130,246,0.65));
-        backdrop-filter: blur(8px);
-    }}
-    </style>
-""", unsafe_allow_html=True)
-def get_base64_of_bin_file(bin_file):
-    with open(bin_file, 'rb') as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
-
-# Path to your background image (put it in same folder as app.py)
-BG_IMAGE_PATH = "background.jpg"  # ← CHANGE TO YOUR FILE NAME
-
-try:
-    bg_base64 = get_base64_of_bin_file(BG_IMAGE_PATH)
-    bg_url = f"data:image/jpeg;base64,{bg_base64}"
-except FileNotFoundError:
-    bg_url = "https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=2000"  # fallback subtle gradient
-    st.warning("Background image not found → using fallback online image")
-
-# ────────────────────────────────────────────────
-# Modern & lively CSS with background + overlay + animations
-# ────────────────────────────────────────────────
-# Use this if image is in repo root
-BG_IMAGE = "bg-ultrasound.jpg"          # your saved filename
-
-# or use direct link
-# BG_IMAGE = "https://i.postimg.cc/your-real-link.jpg"
-
-st.markdown(f"""
-    <style>
-    [data-testid="stAppViewContainer"] {{
-        background: linear-gradient(rgba(248, 250, 255, 0.86), rgba(240, 248, 255, 0.90)),
-                    url('{BG_IMAGE if BG_IMAGE.startswith("http") else f"data:image/jpeg;base64,{get_base64_image(BG_IMAGE)}"}');
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-    }}
-    </style>
-""", unsafe_allow_html=True)
-    
-
-/* Header / top bar transparent */
-    [data-testid="stHeader"] {{
-        background: rgba(0,0,0,0);
-    }}
-
-    /* Sidebar lively touch */
-    [data-testid="stSidebar"] > div:first-child {{
-        background: linear-gradient(135deg, rgba(30, 58, 138, 0.88), rgba(59, 130, 246, 0.75));
         backdrop-filter: blur(8px);
         border-right: 1px solid rgba(255,255,255,0.15);
     }}
 
-    /* Card-like result box with subtle animation */
     .result-card {{
         padding: 28px;
         border-radius: 16px;
@@ -139,7 +84,6 @@ st.markdown(f"""
     .benign    {{ border-left: 6px solid #10b981; }}
     .normal    {{ border-left: 6px solid #3b82f6; }}
 
-    /* Buttons – lively hover */
     .stButton > button {{
         background: linear-gradient(90deg, #3b82f6, #60a5fa);
         color: white;
@@ -150,20 +94,19 @@ st.markdown(f"""
         transition: all 0.3s ease;
         box-shadow: 0 4px 12px rgba(59,130,246,0.3);
     }}
+
     .stButton > button:hover {{
         transform: translateY(-2px);
         box-shadow: 0 8px 20px rgba(59,130,246,0.5);
-        background: linear-gradient(90deg, #2563eb, #3b82f6);
     }}
 
-    /* Typography */
     h1 {{ color: #1e40af; text-align: center; font-weight: 700; }}
     .disclaimer {{ font-size: 0.82rem; color: #6b7280; text-align: center; margin-top: 50px; }}
     </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# Load model (with cache)
+# Load the trained model
 # ────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
@@ -176,7 +119,7 @@ def load_model():
 model = load_model()
 
 # ────────────────────────────────────────────────
-# Feature extraction (unchanged)
+# Feature extraction function
 # ────────────────────────────────────────────────
 def extract_features(img):
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -216,7 +159,7 @@ def extract_features(img):
     }])
 
 # ────────────────────────────────────────────────
-# Sidebar – enhanced
+# Sidebar
 # ────────────────────────────────────────────────
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/000000/breast-cancer-ribbon.png", width=90)
@@ -255,7 +198,6 @@ if uploaded_file is not None:
                 label = labels[pred]
                 conf = probs[pred]
                 
-                # Dynamic card style
                 if label == "Malignant":
                     cls = "malignant"
                     emoji = "🔴"
@@ -277,7 +219,6 @@ if uploaded_file is not None:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Confidence visualization
                 probs_df = pd.DataFrame({
                     "Class": ["Benign", "Malignant", "Normal"],
                     "Confidence (%)": probs * 100
@@ -290,7 +231,7 @@ if uploaded_file is not None:
                 st.error(f"Prediction failed: {ex}")
                 st.info("Try a different image or check file format.")
 
-# Footer
+# Footer disclaimer
 st.markdown("---")
 st.markdown(
     '<div class="disclaimer">'

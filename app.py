@@ -4,7 +4,6 @@ import pandas as pd
 import joblib
 import cv2
 import numpy as np
-from skimage.feature import graycomatrix, graycoprops
 
 # ────────────────────────────────────────────────
 # Page config
@@ -126,35 +125,35 @@ def load_model():
 model = load_model()
 
 # ────────────────────────────────────────────────
-# Fixed feature extraction – flattened 128×128 grayscale
+# FIXED feature extraction – only flattened 128×128 grayscale
 # ────────────────────────────────────────────────
 def extract_features(img):
     try:
         # Convert to grayscale
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        # Resize to 128×128 → exactly 16384 pixels
+        # Resize → must produce exactly 128×128
         img_resized = cv2.resize(img_gray, (128, 128))
         
-        # Safety check
+        # Verify shape
         if img_resized.shape != (128, 128):
-            raise ValueError(f"Resized image has wrong shape: {img_resized.shape}")
+            raise ValueError(f"Resized shape is wrong: {img_resized.shape}")
         
-        # Flatten → 16384 values
+        # Flatten → exactly 16384 values
         features_flat = img_resized.flatten().astype(np.float32)
         
-        # Optional: normalize to [0,1] range (uncomment if your training data was normalized)
+        # Optional: normalize to [0,1] range (uncomment if training data was normalized)
         # features_flat = features_flat / 255.0
         
-        # Build dictionary with 16384 keys
+        # Create dictionary – all values are scalars → same length guaranteed
         feature_dict = {f"pixel_{i}": float(v) for i, v in enumerate(features_flat)}
         
         # Create DataFrame – 1 row, 16384 columns
         df = pd.DataFrame([feature_dict])
         
-        # Final safety check
+        # Safety check
         if df.shape[1] != 16384:
-            raise ValueError(f"Generated wrong number of features: {df.shape[1]} (expected 16384)")
+            raise ValueError(f"Wrong number of features: {df.shape[1]} (expected 16384)")
         
         return df
     
@@ -163,7 +162,7 @@ def extract_features(img):
         return None
 
 # ────────────────────────────────────────────────
-# Main content – attractive drag-and-drop uploader
+# Main content
 # ────────────────────────────────────────────────
 st.markdown("### Upload Breast Ultrasound Image")
 uploaded_file = st.file_uploader(
@@ -186,7 +185,6 @@ if uploaded_file is not None:
   
     if st.button("Analyze Image", type="primary", use_container_width=True):
         with st.spinner("Analyzing image..."):
-            # Read image
             img_array = np.frombuffer(uploaded_file.getvalue(), np.uint8)
             img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
             
@@ -198,11 +196,17 @@ if uploaded_file is not None:
                 if features is None:
                     st.error("Could not extract features from this image.")
                 else:
+                    # ─── Debug output – helps confirm correct shape ───
+                    st.write("**Debug – Features info**")
+                    st.write("Shape:", features.shape)
+                    st.write("Columns:", features.shape[1])
+                    # st.write("First columns:", list(features.columns)[:5])  # uncomment if needed
+                    
                     try:
                         raw_pred = model.predict(features)[0]
                         probs = model.predict_proba(features)[0]
 
-                        # Handle both integer index and string label
+                        # Handle both integer and string prediction
                         if isinstance(raw_pred, (int, np.integer)):
                             pred_idx = int(raw_pred)
                             label_map = {0: "Benign", 1: "Malignant", 2: "Normal"}
@@ -215,7 +219,7 @@ if uploaded_file is not None:
                                 idx = np.where(class_names == raw_pred)[0][0]
                                 conf = float(probs[idx])
                             except:
-                                conf = float(probs.max())  # fallback
+                                conf = float(probs.max())
                         else:
                             raise ValueError(f"Unexpected prediction type: {type(raw_pred)}")
 
@@ -253,10 +257,6 @@ if uploaded_file is not None:
                     
                     except Exception as ve:
                         st.error(f"Prediction error:\n{str(ve)}")
-                        # Uncomment for debugging
-                        # st.write("Raw prediction:", raw_pred)
-                        # st.write("Model classes:", getattr(model, 'classes_', 'Not available'))
-                        # st.write("Features shape:", features.shape)
 
 # ────────────────────────────────────────────────
 # Footer

@@ -350,7 +350,7 @@ if uploaded_file is not None:
                 msg = "Appears normal – no significant findings."
             
             st.markdown(f"""
-            <div class="result-card {cls}">
+             <div class="result-card {cls}">
                 <h2 style="margin:0 0 12px 0;">{emoji} {label}</h2>
                 <p style="font-size:1.6rem; margin:12px 0;">Confidence: <strong>{conf:.1%}</strong></p>
                 <p>{msg}</p>

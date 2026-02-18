@@ -100,13 +100,13 @@ st.markdown("""
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/000000/breast-cancer-ribbon.png", width=80)
     st.title("BreastCare AI")
-  
+ 
     st.markdown("**Purpose**")
     st.caption("AI-supported classification of breast ultrasound images")
-  
+ 
     st.markdown("**Model**")
     st.caption("Random Forest • Trained on BUSI dataset")
-  
+ 
     st.info("**Research prototype only**\n\nNot for clinical diagnosis.", icon="⚠️")
 
 # ────────────────────────────────────────────────
@@ -116,7 +116,6 @@ with st.sidebar:
 def load_model():
     try:
         model = joblib.load("best_tuned_rf_breast_ultrasound.pkl")
-        # Optional: store expected number of features for future checks
         if hasattr(model, 'n_features_in_'):
             st.session_state.expected_features = model.n_features_in_
         return model
@@ -127,69 +126,26 @@ def load_model():
 model = load_model()
 
 # ────────────────────────────────────────────────
-# Safer feature extraction
+# Safer feature extraction (flattened 128×128 grayscale – matches 16384 features)
 # ────────────────────────────────────────────────
 def extract_features(img):
     try:
-        # Convert to grayscale
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Resize to exactly what the model expects (most likely 128×128)
         img_resized = cv2.resize(img_gray, (128, 128))
-        
-        # Flatten → 128 * 128 = 16384 features
         features_flat = img_resized.flatten().astype(np.float32)
         
-        # Create DataFrame with 16384 columns (named feat_0 to feat_16383)
+        # Optional: normalize pixel values (uncomment if training data was normalized)
+        # features_flat = features_flat / 255.0
+        
         feature_dict = {f"pixel_{i}": float(v) for i, v in enumerate(features_flat)}
         df = pd.DataFrame([feature_dict])
-        
         return df
-    
     except Exception as e:
         st.error(f"Image processing failed: {str(e)}")
         return None
 
-        # Shape features
-        _, thresh = cv2.threshold(img_resized, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        area = perimeter = circularity = 0.0
-        if contours:
-            cnt = max(contours, key=cv2.contourArea)
-            area = float(cv2.contourArea(cnt))
-            perimeter = float(cv2.arcLength(cnt, True))
-            if perimeter > 1e-6:  # avoid division by zero
-                circularity = float(4 * np.pi * area / (perimeter ** 2))
-
-        # Build DataFrame
-        feature_dict = {
-            'mean_intensity': mean_intensity,
-            'std_intensity': std_intensity,
-            'area': area,
-            'perimeter': perimeter,
-            'circularity': circularity,
-            **texture_feats
-        }
-        
-        df = pd.DataFrame([feature_dict])
-        
-        # Force clean numeric types
-        df = df.astype(np.float64).fillna(0.0)
-        
-        # Optional: check against model's expected feature count
-        if 'expected_features' in st.session_state:
-            if df.shape[1] != st.session_state.expected_features:
-                st.warning(f"Feature count mismatch (got {df.shape[1]}, expected {st.session_state.expected_features})")
-
-        return df
-    
-    except Exception as e:
-        st.error(f"Feature extraction failed: {str(e)}")
-        return None
-
 # ────────────────────────────────────────────────
-# Main content – attractive drag-and-drop uploader
+# Main content
 # ────────────────────────────────────────────────
 st.markdown("### Upload Breast Ultrasound Image")
 uploaded_file = st.file_uploader(
@@ -206,37 +162,54 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
     st.markdown("---")
-  
+ 
     st.subheader("Image Preview")
     st.image(uploaded_file, caption=f"{uploaded_file.name} • {uploaded_file.size / 1024:.1f} KB", use_column_width=True)
-  
+ 
     if st.button("Analyze Image", type="primary", use_container_width=True):
         with st.spinner("Analyzing image..."):
-            # Read image
             img_array = np.frombuffer(uploaded_file.getvalue(), np.uint8)
             img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-            
+           
             if img is None:
                 st.error("Failed to decode the uploaded image. Please try a different file.")
             else:
                 features = extract_features(img)
-                
+               
                 if features is None:
                     st.error("Could not extract features from this image.")
                 else:
                     try:
-                        pred = model.predict(features)[0]
+                        raw_pred = model.predict(features)[0]
                         probs = model.predict_proba(features)[0]
-                        
-                        labels = {0: "Benign", 1: "Malignant", 2: "Normal"}
-                        label = labels.get(int(pred), "Unknown")
-                        conf = float(probs[pred]) if 0 <= pred < len(probs) else 0.0
-                        
-                        if label == "Malignant":
+
+                        # ────────────────────────────────────────────────
+                        # Handle both integer index and string label
+                        # ────────────────────────────────────────────────
+                        if isinstance(raw_pred, (int, np.integer)):
+                            pred_idx = int(raw_pred)
+                            label_map = {0: "Benign", 1: "Malignant", 2: "Normal"}
+                            label = label_map.get(pred_idx, f"Class {pred_idx}")
+                            conf = float(probs[pred_idx]) if 0 <= pred_idx < len(probs) else 0.0
+                        elif isinstance(raw_pred, str):
+                            label = raw_pred.strip().title()
+                            try:
+                                class_names = model.classes_
+                                idx = np.where(class_names == raw_pred)[0][0]
+                                conf = float(probs[idx])
+                            except:
+                                conf = float(probs.max())  # fallback
+                        else:
+                            raise ValueError(f"Unexpected prediction type: {type(raw_pred)}")
+
+                        # ────────────────────────────────────────────────
+                        # Display result
+                        # ────────────────────────────────────────────────
+                        if "malignant" in label.lower():
                             cls = "malignant"
                             emoji = "🔴"
                             msg = "Potential concern detected – urgent specialist review recommended."
-                        elif label == "Benign":
+                        elif "benign" in label.lower():
                             cls = "benign"
                             emoji = "🟢"
                             msg = "Likely benign – routine follow-up recommended."
@@ -244,7 +217,7 @@ if uploaded_file is not None:
                             cls = "normal"
                             emoji = "✅"
                             msg = "Appears normal – no significant findings."
-                        
+
                         st.markdown(f"""
                         <div class="result-card {cls}">
                             <h2 style="margin:0 0 12px 0;">{emoji} {label}</h2>
@@ -254,21 +227,21 @@ if uploaded_file is not None:
                             <p>{msg}</p>
                         </div>
                         """, unsafe_allow_html=True)
-                      
+                     
                         probs_df = pd.DataFrame({
                             "Class": ["Benign", "Malignant", "Normal"],
                             "Confidence (%)": probs * 100
                         }).set_index("Class")
-                      
+                     
                         st.subheader("Confidence Breakdown")
                         st.bar_chart(probs_df, color="#3b82f6", height=300)
-                    
-                    except ValueError as ve:
-                        st.error(f"Prediction error (likely feature shape or type issue):\n{str(ve)}")
-                        # Optional debug – uncomment to investigate
+                   
+                    except Exception as ve:
+                        st.error(f"Prediction error:\n{str(ve)}")
+                        # Uncomment for debugging
+                        # st.write("Raw prediction:", raw_pred)
+                        # st.write("Model classes:", getattr(model, 'classes_', 'Not available'))
                         # st.write("Features shape:", features.shape)
-                        # st.write("Features dtypes:", features.dtypes)
-                        # st.write("Features head:", features.iloc[0].to_dict())
 
 # ────────────────────────────────────────────────
 # Footer

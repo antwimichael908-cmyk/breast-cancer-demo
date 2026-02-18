@@ -106,7 +106,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
     
 
-    /* Header / top bar transparent */
+/* Header / top bar transparent */
     [data-testid="stHeader"] {{
         background: rgba(0,0,0,0);
     }}

@@ -1,0 +1,215 @@
+# Breast Cancer Detection: Tuned Random Forest on BUSI Ultrasound Images
+# With RandomizedSearchCV hyperparameter tuning
+
+# Requirements:
+# pip install scikit-image scikit-learn pandas opencv-python joblib tqdm seaborn matplotlib
+
+import cv2
+import numpy as np
+import pandas as pd
+from skimage.feature import graycomatrix, graycoprops
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    confusion_matrix, ConfusionMatrixDisplay, classification_report
+)
+import joblib
+from pathlib import Path
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import randint, uniform
+
+# ────────────────────────────────────────────────
+# CONFIG
+# ────────────────────────────────────────────────
+DATA_DIR = r"C:\Users\Hulede\PycharmProjects\PythonProject3\Dataset_BUSI_with_GT"  # ← UPDATE THIS (benign / malignant / normal folders)
+IMG_SIZE = (224, 224)
+
+LABEL_MAP = {'benign': 0, 'malignant': 1, 'normal': 2}
+
+
+# ────────────────────────────────────────────────
+# Feature Extraction
+# ────────────────────────────────────────────────
+def extract_features(img_path):
+    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return None
+
+    img = cv2.resize(img, IMG_SIZE)
+
+    mean_intensity = np.mean(img)
+    std_intensity = np.std(img)
+
+    # GLCM – richer set
+    distances = [1, 2, 3]
+    angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4]
+    glcm = graycomatrix(img, distances=distances, angles=angles, levels=256,
+                        symmetric=True, normed=True)
+
+    texture_feats = {}
+    for prop in ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'ASM']:
+        vals = graycoprops(glcm, prop)
+        for i, d in enumerate(distances):
+            for j, a in enumerate(angles):
+                texture_feats[f"{prop}_d{d}_a{j:.2f}"] = vals[i, j]
+
+    # Shape
+    _, thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    area = perimeter = circularity = 0.0
+    if contours:
+        cnt = max(contours, key=cv2.contourArea)
+        area = cv2.contourArea(cnt)
+        perimeter = cv2.arcLength(cnt, True)
+        if perimeter > 0:
+            circularity = 4 * np.pi * area / (perimeter ** 2)
+
+    return {
+        'mean_intensity': mean_intensity,
+        'std_intensity': std_intensity,
+        'area': area,
+        'perimeter': perimeter,
+        'circularity': circularity,
+        **texture_feats
+    }
+
+
+# ────────────────────────────────────────────────
+# Load data
+# ────────────────────────────────────────────────
+data = []
+for class_name, label in tqdm(LABEL_MAP.items(), desc="Loading classes"):
+    folder = Path(DATA_DIR) / class_name
+    if not folder.exists():
+        print(f"Folder not found: {folder}")
+        continue
+    for img_path in folder.glob("*.png"):
+        feats = extract_features(str(img_path))
+        if feats:
+            feats['label'] = label
+            data.append(feats)
+
+df = pd.DataFrame(data)
+print(f"\nExtracted {len(df)} images")
+print(df['label'].value_counts())
+
+# Optional: save features
+df.to_csv("busi_features_extracted.csv", index=False)
+
+# ────────────────────────────────────────────────
+# Prepare data
+# ────────────────────────────────────────────────
+X = df.drop('label', axis=1)
+y = df['label']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.20,
+    random_state=42,
+    stratify=y
+)
+
+
+
+param_dist = {
+    'n_estimators': randint(200, 1000),          # more trees almost always help (diminishing returns after ~500–800)
+    'max_depth': [None] + list(range(15, 60, 5)), # allow very deep trees or unlimited
+    'min_samples_split': randint(2, 15),         # low values → more splits → higher capacity
+    'min_samples_leaf': randint(1, 6),           # very small leaves help capture complex patterns
+    'max_features': ['sqrt', 'log2', None] + [uniform(0.2, 0.8)],  # include fractions + common rules
+    'class_weight': [None, 'balanced', 'balanced_subsample'],  # depends on your class balance
+    'bootstrap': [True, False]                   # False (pasting) sometimes wins on complex data
+}
+
+rf_base = RandomForestClassifier(random_state=42, n_jobs=-1)
+
+random_search = RandomizedSearchCV(
+    estimator=rf_base,
+    param_distributions=param_dist,
+    n_iter=40,  # 30–60 is usually sweet spot
+    cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
+    scoring='f1_weighted',  # good for imbalanced medical data
+    n_jobs=-1,
+    verbose=1,
+    random_state=42,
+    return_train_score=True
+)
+
+print("\nStarting hyperparameter tuning (RandomizedSearchCV) ...")
+random_search.fit(X_train, y_train)
+
+# ────────────────────────────────────────────────
+# Results
+# ────────────────────────────────────────────────
+print("\n" + "=" * 60)
+print("Best parameters found:")
+print(random_search.best_params_)
+print(f"Best cross-validation F1 (weighted): {random_search.best_score_:.4f}")
+print("=" * 60)
+
+# Best model
+best_model = random_search.best_estimator_
+
+# ────────────────────────────────────────────────
+# Final evaluation on hold-out test set
+# ────────────────────────────────────────────────
+y_pred = best_model.predict(X_test)
+
+print("\nTest Set Performance:")
+print(f"Accuracy:  {accuracy_score(y_test, y_pred):.4f}")
+print(f"Precision: {precision_score(y_test, y_pred, average='weighted'):.4f}")
+print(f"Recall:    {recall_score(y_test, y_pred, average='weighted'):.4f}")
+print(f"F1 Score:  {f1_score(y_test, y_pred, average='weighted'):.4f}")
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, target_names=['Benign', 'Malignant', 'Normal']))
+
+# ────────────────────────────────────────────────
+# Confusion Matrix - nicer seaborn version
+# ────────────────────────────────────────────────
+cm = confusion_matrix(y_test, y_pred)
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=['Benign', 'Malignant', 'Normal'],
+            yticklabels=['Benign', 'Malignant', 'Normal'],
+            cbar_kws={'label': 'Count'})
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.title('Confusion Matrix – Best Random Forest (Tuned)')
+plt.tight_layout()
+plt.savefig('confusion_matrix_best_rf.png', dpi=300, bbox_inches='tight')
+plt.show()
+
+# ────────────────────────────────────────────────
+# Feature importance (top 15)
+# ────────────────────────────────────────────────
+importances = pd.Series(best_model.feature_importances_, index=X.columns) \
+    .sort_values(ascending=False)
+
+print("\nTop 15 most important features:")
+print(importances.head(15))
+
+# ────────────────────────────────────────────────
+# Save the best model
+# ────────────────────────────────────────────────
+joblib.dump(best_model, 'best_tuned_rf_breast_ultrasound.pkl')
+print("\nBest tuned model saved → 'best_tuned_rf_breast_ultrasound.pkl'")
+import joblib
+import os
+
+# Change this path to something simple on your desktop or project folder
+SAVE_PATH = r"C:\Users\Hulede\Desktop\breast_model.pkl"   # ← Windows example
+# or macOS/Linux example:
+# SAVE_PATH = "/home/michael/Desktop/breast_model.pkl"
+
+# Use your actual model variable name (best_model, rf_model, etc.)
+joblib.dump(best_model, SAVE_PATH)
+
+print("Model forcefully saved to:")
+print(SAVE_PATH)
+print("File exists?", os.path.exists(SAVE_PATH))
+print("Current working dir was:", os.getcwd())

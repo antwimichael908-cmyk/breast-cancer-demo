@@ -1,11 +1,10 @@
-# app.py - BreastCare AI with your local background.jpg
+# app.py - BreastCare AI with lively animated gradient background
 import streamlit as st
 import pandas as pd
 import joblib
 import cv2
 import numpy as np
 from skimage.feature import graycomatrix, graycoprops
-import base64
 
 # ────────────────────────────────────────────────
 # Page configuration
@@ -18,92 +17,113 @@ st.set_page_config(
 )
 
 # ────────────────────────────────────────────────
-# Load background image as base64
+# Lively animated background + modern styling
 # ────────────────────────────────────────────────
-def get_base64_image(file_path):
-    try:
-        with open(file_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        st.warning(f"Error reading background image: {e}")
-        return None
-
-# Your background image filename (must match exactly!)
-BG_FILENAME = "ultrasound-bg.jpg"  # ← change to .png if needed
-
-bg_base64 = get_base64_image(BG_FILENAME)
-
-if bg_base64:
-    bg_url = f"data:image/jpeg;base64,{bg_base64}"
-    st.success("Background image loaded successfully!")
-else:
-    bg_url = "linear-gradient(135deg, #e0f2fe, #bfdbfe)"
-    st.warning(f"Background image '{BG_FILENAME}' not found — using fallback gradient")
-
-# ────────────────────────────────────────────────
-# Apply background + styling
-# ────────────────────────────────────────────────
-st.markdown(f"""
+st.markdown("""
     <style>
-    [data-testid="stAppViewContainer"] {{
-        background-image: 
-            linear-gradient(rgba(245, 245, 250, 0.82), rgba(245, 245, 250, 0.88)),
-            url("{bg_url}");
-        background-size: cover;
-        background-position: center center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-    }}
+    /* Animated gradient background */
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(-45deg, #a1c4fd, #c2e9fb, #89d4cf, #a1c4fd, #c2e9fb);
+        background-size: 400% 400%;
+        animation: gradientFlow 18s ease infinite;
+        min-height: 100vh;
+    }
 
-    [data-testid="stHeader"] {{
+    @keyframes gradientFlow {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* Transparent header */
+    [data-testid="stHeader"] {
         background: rgba(0,0,0,0);
-    }}
+    }
 
-    section[data-testid="stSidebar"] > div:first-child {{
-        background: linear-gradient(135deg, rgba(30,58,138,0.82), rgba(59,130,246,0.65));
-        backdrop-filter: blur(8px);
-    }}
+    /* Floating subtle particles / bubbles effect */
+    .floating-particle {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.25);
+        border-radius: 50%;
+        pointer-events: none;
+        animation: floatUp linear infinite;
+        z-index: -1;
+    }
 
-    .result-card {{
+    @keyframes floatUp {
+        0% { transform: translateY(100vh) scale(0.5); opacity: 0; }
+        20% { opacity: 0.8; }
+        80% { opacity: 0.6; }
+        100% { transform: translateY(-20vh) scale(1.2); opacity: 0; }
+    }
+
+    /* Sidebar glass effect */
+    section[data-testid="stSidebar"] > div:first-child {
+        background: linear-gradient(135deg, rgba(30,58,138,0.75), rgba(59,130,246,0.55));
+        backdrop-filter: blur(10px);
+        border-right: 1px solid rgba(255,255,255,0.18);
+        box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    }
+
+    /* Result card with animation */
+    .result-card {
         padding: 28px;
         border-radius: 16px;
         margin: 24px 0;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-        background: rgba(255, 255, 255, 0.92);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.3);
-        animation: fadeInUp 0.6s ease-out;
-    }}
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.4);
+        animation: fadeInUp 0.7s ease-out;
+    }
 
-    @keyframes fadeInUp {{
-        from {{ opacity: 0; transform: translateY(20px); }}
-        to   {{ opacity: 1; transform: translateY(0); }}
-    }}
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
 
-    .malignant {{ border-left: 6px solid #ef4444; }}
-    .benign    {{ border-left: 6px solid #10b981; }}
-    .normal    {{ border-left: 6px solid #3b82f6; }}
+    .malignant { border-left: 6px solid #ef4444; }
+    .benign    { border-left: 6px solid #10b981; }
+    .normal    { border-left: 6px solid #3b82f6; }
 
-    .stButton > button {{
+    /* Catchy button */
+    .stButton > button {
         background: linear-gradient(90deg, #3b82f6, #60a5fa);
         color: white;
+        border: none;
         border-radius: 12px;
         padding: 14px 32px;
         font-weight: 600;
-        transition: all 0.3s;
-        box-shadow: 0 4px 12px rgba(59,130,246,0.3);
-    }}
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(59,130,246,0.35);
+    }
 
-    .stButton > button:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(59,130,246,0.5);
-    }}
+    .stButton > button:hover {
+        transform: translateY(-3px) scale(1.03);
+        box-shadow: 0 12px 30px rgba(59,130,246,0.55);
+        background: linear-gradient(90deg, #2563eb, #3b82f6);
+    }
 
-    h1 {{ color: #1e40af; text-align: center; font-weight: 700; }}
-    .disclaimer {{ font-size: 0.82rem; color: #6b7280; text-align: center; margin-top: 50px; }}
+    h1 { color: #1e3a8a; text-align: center; font-weight: 700; }
+    .disclaimer { font-size: 0.82rem; color: #6b7280; text-align: center; margin-top: 50px; }
     </style>
+
+    <!-- Floating particles (added via JS) -->
+    <script>
+    function createParticle() {
+        const particle = document.createElement('div');
+        particle.className = 'floating-particle';
+        particle.style.width = particle.style.height = Math.random() * 12 + 6 + 'px';
+        particle.style.left = Math.random() * 100 + 'vw';
+        particle.style.animationDuration = Math.random() * 12 + 10 + 's';
+        particle.style.animationDelay = Math.random() * 5 + 's';
+        document.body.appendChild(particle);
+        
+        setTimeout(() => particle.remove(), 20000);
+    }
+
+    setInterval(createParticle, 800);
+    </script>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
@@ -120,17 +140,17 @@ def load_model():
 model = load_model()
 
 # ────────────────────────────────────────────────
-# Feature extraction (same as before)
+# Feature extraction
 # ────────────────────────────────────────────────
 def extract_features(img):
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img_resized = cv2.resize(img_gray, (224, 224))
     
     mean_intensity = np.mean(img_resized)
-    std_intensity = np.std(img_resized)
+    std_intensity  = np.std(img_resized)
     
     distances = [1, 2, 3]
-    angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+    angles    = [0, np.pi/4, np.pi/2, 3*np.pi/4]
     glcm = graycomatrix(img_resized, distances, angles, levels=256, symmetric=True, normed=True)
     
     texture_feats = {}

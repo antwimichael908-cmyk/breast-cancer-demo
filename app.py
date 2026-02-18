@@ -1,4 +1,4 @@
-# app.py - BreastCare AI • Dark Blue-Black Theme + Enhanced Drag & Drop
+# app.py - BreastCare AI • Dark Theme + Neon Cyan Dashed Drag & Drop
 import streamlit as st
 import pandas as pd
 import joblib
@@ -17,14 +17,14 @@ st.set_page_config(
 )
 
 # ────────────────────────────────────────────────
-# Dark blue-black theme + improved drop zone styling
+# Dark theme + Neon Cyan dashed drop zone
 # ────────────────────────────────────────────────
 st.markdown("""
     <style>
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a);
+        background: linear-gradient(-45deg, #0b0f1a, #111827, #0b0f1a);
         background-size: 400% 400%;
-        animation: slowShift 25s ease infinite;
+        animation: slowShift 30s ease infinite;
         color: #e2e8f0;
     }
 
@@ -36,111 +36,107 @@ st.markdown("""
 
     [data-testid="stHeader"] { background: rgba(0,0,0,0); }
 
-    h1, h2, h3 { color: #60a5fa !important; }
+    h1, h2, h3 { color: #22d3ee !important; }
 
-    /* Enhanced drag & drop zone */
+    /* Neon cyan dashed drop zone – inspired by your screenshot */
     .drop-zone {
-        padding: 80px 40px;
-        border: 3px dashed #60a5fa88;
-        border-radius: 20px;
+        padding: 90px 50px;
+        border: 3px dashed #22d3ee;
+        border-radius: 16px;
         text-align: center;
-        background: rgba(30, 41, 59, 0.45);
-        backdrop-filter: blur(10px);
-        margin: 32px 0 40px 0;
-        transition: all 0.35s ease;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(12px);
+        margin: 40px 0 50px 0;
+        box-shadow: 0 0 30px rgba(34, 211, 238, 0.25);
+        transition: all 0.4s ease;
         position: relative;
         overflow: hidden;
     }
 
     .drop-zone:hover {
-        border-color: #60a5fa;
-        background: rgba(30, 41, 59, 0.65);
-        box-shadow: 0 12px 40px rgba(96,165,250,0.25);
-        transform: translateY(-4px);
+        border-color: #67e8f9;
+        box-shadow: 0 0 50px rgba(103, 232, 249, 0.45);
+        transform: translateY(-6px);
     }
 
-    .drop-zone::before {
+    .drop-zone::after {
         content: "";
         position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        border: 2px solid #60a5fa44;
+        top: -2px; left: -2px; right: -2px; bottom: -2px;
+        border: 3px dashed #22d3ee;
         border-radius: 18px;
-        opacity: 0;
-        transition: opacity 0.4s ease;
+        opacity: 0.6;
+        animation: neonPulse 2.5s infinite alternate;
+        pointer-events: none;
     }
 
-    .drop-zone:hover::before {
-        opacity: 1;
-        animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-        0% { transform: scale(1); opacity: 0.6; }
-        50% { transform: scale(1.06); opacity: 0.3; }
-        100% { transform: scale(1); opacity: 0.6; }
+    @keyframes neonPulse {
+        0% { opacity: 0.4; transform: scale(1); }
+        100% { opacity: 0.9; transform: scale(1.03); }
     }
 
     .drop-zone h2 {
-        margin: 0 0 16px 0;
-        font-size: 1.8rem;
-        color: #93c5fd;
+        margin: 0 0 20px 0;
+        font-size: 2.1rem;
+        color: #67e8f9;
+        text-shadow: 0 0 10px rgba(103, 232, 249, 0.5);
     }
 
     .drop-zone p {
-        margin: 0 0 12px 0;
+        margin: 0 0 16px 0;
+        font-size: 1.25rem;
         color: #cbd5e1;
-        font-size: 1.15rem;
     }
 
     .drop-zone small {
         color: #94a3b8;
+        font-size: 0.95rem;
     }
 
     /* Result card */
     .result-card {
         padding: 32px;
         border-radius: 16px;
-        background: rgba(30, 41, 59, 0.85);
-        backdrop-filter: blur(12px);
-        border: 1px solid #475569;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        animation: fadeInUp 0.6s ease-out;
-        margin: 32px 0;
+        background: rgba(30, 41, 59, 0.82);
+        backdrop-filter: blur(14px);
+        border: 1px solid #334155;
+        box-shadow: 0 10px 35px rgba(0,0,0,0.6);
+        animation: fadeInUp 0.7s ease-out;
+        margin: 40px 0;
     }
 
     @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(30px); }
+        from { opacity: 0; transform: translateY(35px); }
         to   { opacity: 1; transform: translateY(0); }
     }
 
     .malignant { border-left: 6px solid #f87171; }
     .benign    { border-left: 6px solid #34d399; }
-    .normal    { border-left: 6px solid #60a5fa; }
+    .normal    { border-left: 6px solid #22d3ee; }
 
     .stButton > button {
-        background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        background: linear-gradient(90deg, #0891b2, #22d3ee);
         color: white;
         border: none;
-        border-radius: 10px;
-        padding: 14px 32px;
+        border-radius: 12px;
+        padding: 14px 36px;
         font-weight: 600;
-        box-shadow: 0 4px 15px rgba(59,130,246,0.4);
-        transition: all 0.3s;
+        box-shadow: 0 6px 20px rgba(34,211,238,0.35);
+        transition: all 0.35s ease;
     }
 
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 30px rgba(59,130,246,0.6);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 35px rgba(34,211,238,0.55);
     }
 
-    .disclaimer { 
-        font-size: 0.85rem; 
-        color: #94a3b8; 
-        text-align: center; 
-        margin-top: 60px; 
-        padding: 16px;
-        background: rgba(15,23,42,0.6);
+    .disclaimer {
+        font-size: 0.88rem;
+        color: #94a3b8;
+        text-align: center;
+        margin-top: 70px;
+        padding: 20px;
+        background: rgba(15,23,42,0.7);
         border-radius: 12px;
     }
     </style>
@@ -159,7 +155,7 @@ def load_model():
 
 model = load_model()
 
-# Feature extraction function (unchanged)
+# Feature extraction (unchanged)
 def extract_features(img):
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img_resized = cv2.resize(img_gray, (224, 224))
@@ -209,17 +205,17 @@ with st.sidebar:
     st.caption("Trained on BUSI • Random Forest • 2026")
 
 # ────────────────────────────────────────────────
-# Main content – Improved drag & drop only
+# Main content – Neon cyan dashed drag & drop zone
 # ────────────────────────────────────────────────
 st.title("🩺 BreastCare AI Classifier")
 st.markdown("**Upload your ultrasound image and get instant insights**")
 
-# Large, attractive drag-and-drop zone
+# Neon cyan dashed drop zone
 st.markdown("""
 <div class="drop-zone">
-    <h2>Drop Ultrasound Image Here</h2>
-    <p>or click to browse • PNG / JPG / JPEG</p>
-    <small>Best results with clear, focused scans</small>
+    <h2>Drag & Drop Ultrasound Image</h2>
+    <p>or click to browse files</p>
+    <small>PNG • JPG • JPEG • Limit 200 MB per file</small>
 </div>
 """, unsafe_allow_html=True)
 
@@ -228,34 +224,30 @@ uploaded_file = st.file_uploader(
     type=["png", "jpg", "jpeg"],
     accept_multiple_files=False,
     label_visibility="collapsed",
-    key="enhanced_drag_drop_uploader"
+    key="neon_cyan_dropzone"
 )
 
 if uploaded_file is not None:
     st.markdown("---")
     
-    # Preview + analyze controls
     st.subheader("Image Preview")
     st.image(uploaded_file, caption=f"{uploaded_file.name} • {uploaded_file.size / 1024:.1f} KB", use_column_width=True)
     
-    st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
-    
     if st.button("Analyze This Image", type="primary", use_container_width=True):
-        with st.status("Analyzing image...", expanded=True) as status:
-            status.update(label="Preprocessing image...", state="running")
+        with st.status("Processing image...", expanded=True) as status:
+            status.update(label="Loading image...", state="running")
             img_array = np.frombuffer(uploaded_file.getvalue(), np.uint8)
             img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
             
             status.update(label="Extracting features...", state="running")
             features = extract_features(img)
             
-            status.update(label="Running prediction...", state="running")
+            status.update(label="Predicting...", state="running")
             pred = model.predict(features)[0]
             probs = model.predict_proba(features)[0]
             
-            status.update(label="Done!", state="complete", expanded=False)
+            status.update(label="Complete", state="complete", expanded=False)
             
-            # Result
             labels = {0: "Benign", 1: "Malignant", 2: "Normal"}
             label = labels[pred]
             conf = probs[pred]
@@ -276,7 +268,7 @@ if uploaded_file is not None:
             st.markdown(f"""
             <div class="result-card {cls}">
                 <h2 style="margin:0 0 12px 0;">{emoji} {label}</h2>
-                <p style="font-size:1.6rem; margin:8px 0;">Confidence: <strong>{conf:.1%}</strong></p>
+                <p style="font-size:1.7rem; margin:10px 0;">Confidence: <strong>{conf:.1%}</strong></p>
                 <p style="color:#cbd5e1;">{msg}</p>
             </div>
             """, unsafe_allow_html=True)
@@ -287,7 +279,7 @@ if uploaded_file is not None:
             }).set_index("Class")
             
             st.subheader("Confidence Breakdown")
-            st.bar_chart(probs_df, color="#60a5fa", height=320)
+            st.bar_chart(probs_df, color="#22d3ee", height=340)
 
 # Footer
 st.markdown("---")

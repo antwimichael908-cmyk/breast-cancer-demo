@@ -1,4 +1,4 @@
-# app.py - BreastCare AI • Dark Theme + Attractive Neon Cyan Drag & Drop
+# app.py - BreastCare AI • Reset to original core + Improved lively UI (neon accents, sidebar, header, footer)
 import streamlit as st
 import pandas as pd
 import joblib
@@ -7,7 +7,7 @@ import numpy as np
 from skimage.feature import graycomatrix, graycoprops
 
 # ────────────────────────────────────────────────
-# Page configuration
+# Page config + modern lively look
 # ────────────────────────────────────────────────
 st.set_page_config(
     page_title="BreastCare AI – Ultrasound Classifier",
@@ -17,139 +17,154 @@ st.set_page_config(
 )
 
 # ────────────────────────────────────────────────
-# Dark theme + attractive neon cyan drop zone
+# Lively UI – header, neon sidebar, animated footer
 # ────────────────────────────────────────────────
 st.markdown("""
     <style>
+    /* Global dark + neon cyan vibe */
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(-45deg, #0b0f1a, #111827, #0b0f1a);
-        background-size: 400% 400%;
-        animation: slowShift 30s ease infinite;
+        background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
         color: #e2e8f0;
     }
 
-    @keyframes slowShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-
-    [data-testid="stHeader"] { background: rgba(0,0,0,0); }
-
-    h1, h2, h3 { color: #22d3ee !important; }
-
-    /* Attractive neon cyan dashed drop zone */
-    .drop-zone {
-        padding: 100px 60px;
-        border: 3px dashed #22d3ee;
-        border-radius: 20px;
+    /* Fancy header */
+    .main-header {
+        background: linear-gradient(90deg, #0ea5e9, #22d3ee);
+        padding: 28px 40px;
+        border-radius: 0 0 20px 20px;
+        box-shadow: 0 10px 30px rgba(34,211,238,0.3);
         text-align: center;
-        background: rgba(15, 23, 42, 0.55);
-        backdrop-filter: blur(12px);
-        margin: 40px auto;
-        max-width: 900px;
-        box-shadow: 0 0 35px rgba(34, 211, 238, 0.3);
-        transition: all 0.4s ease;
-        position: relative;
+        margin: -16px -32px 32px -32px;
+        color: white;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.5);
     }
 
-    .drop-zone:hover {
-        border-color: #67e8f9;
-        background: rgba(15, 23, 42, 0.75);
-        box-shadow: 0 0 60px rgba(103, 232, 249, 0.5);
-        transform: translateY(-8px);
+    .main-header h1 {
+        margin: 0;
+        font-size: 3rem;
+        font-weight: 800;
+        letter-spacing: -1px;
     }
 
-    .drop-zone::after {
-        content: "";
-        position: absolute;
-        inset: -4px;
-        border: 3px dashed #22d3ee;
-        border-radius: 24px;
-        opacity: 0.5;
-        animation: neonGlow 3s infinite alternate;
-        pointer-events: none;
-    }
-
-    @keyframes neonGlow {
-        0% { opacity: 0.4; transform: scale(1); }
-        100% { opacity: 0.85; transform: scale(1.04); }
-    }
-
-    .drop-zone h2 {
-        margin: 0 0 24px 0;
-        font-size: 2.4rem;
-        color: #67e8f9;
-        text-shadow: 0 0 15px rgba(103, 232, 249, 0.6);
-    }
-
-    .drop-zone .subtitle {
-        font-size: 1.35rem;
-        color: #a5f3fc;
-        margin: 0 0 16px 0;
-    }
-
-    .drop-zone .hint {
-        font-size: 1.05rem;
-        color: #94a3b8;
+    .main-header p {
         margin: 8px 0 0 0;
+        font-size: 1.25rem;
+        opacity: 0.95;
     }
 
-    .drop-zone .icon {
-        font-size: 4.5rem;
+    /* Neon sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+        border-right: 1px solid #334155;
+    }
+
+    section[data-testid="stSidebar"] > div:first-child {
+        background: rgba(15,23,42,0.85);
+        backdrop-filter: blur(12px);
+        padding: 20px 16px;
+    }
+
+    .sidebar-title {
+        color: #22d3ee;
+        font-size: 1.6rem;
         margin-bottom: 20px;
-        color: #67e8f9;
-        text-shadow: 0 0 20px rgba(103, 232, 249, 0.5);
+        text-shadow: 0 0 10px rgba(34,211,238,0.6);
+        text-align: center;
     }
 
-    /* Result card */
+    .sidebar-info {
+        background: rgba(30,41,59,0.6);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 16px 0;
+        border-left: 4px solid #67e8f9;
+    }
+
+    /* Result card with neon glow */
     .result-card {
         padding: 32px;
         border-radius: 16px;
-        background: rgba(30, 41, 59, 0.85);
-        backdrop-filter: blur(14px);
+        background: rgba(30,41,59,0.85);
+        backdrop-filter: blur(12px);
         border: 1px solid #334155;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-        animation: fadeInUp 0.7s ease-out;
-        margin: 40px 0;
+        box-shadow: 0 0 30px rgba(34,211,238,0.25);
+        margin: 32px 0;
+        animation: glowPulse 3s infinite alternate;
     }
 
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(40px); }
-        to   { opacity: 1; transform: translateY(0); }
+    @keyframes glowPulse {
+        0% { box-shadow: 0 0 20px rgba(34,211,238,0.2); }
+        100% { box-shadow: 0 0 45px rgba(34,211,238,0.45); }
     }
 
-    .malignant { border-left: 6px solid #f87171; }
-    .benign    { border-left: 6px solid #34d399; }
-    .normal    { border-left: 6px solid #22d3ee; }
+    .malignant { border-left: 8px solid #f87171; }
+    .benign    { border-left: 8px solid #34d399; }
+    .normal    { border-left: 8px solid #22d3ee; }
 
+    /* Cool button */
     .stButton > button {
         background: linear-gradient(90deg, #0891b2, #22d3ee);
         color: white;
         border: none;
         border-radius: 12px;
-        padding: 16px 40px;
-        font-weight: 600;
-        box-shadow: 0 6px 25px rgba(34,211,238,0.4);
+        padding: 14px 36px;
+        font-weight: bold;
+        box-shadow: 0 6px 20px rgba(34,211,238,0.4);
         transition: all 0.35s;
+        width: 100%;
     }
 
     .stButton > button:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 14px 40px rgba(34,211,238,0.6);
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 12px 35px rgba(34,211,238,0.6);
     }
 
-    .disclaimer {
-        font-size: 0.9rem;
-        color: #94a3b8;
+    /* Animated footer */
+    .cool-footer {
+        background: rgba(15,23,42,0.85);
+        backdrop-filter: blur(10px);
+        border-top: 1px solid #334155;
+        padding: 28px;
+        margin-top: 60px;
         text-align: center;
-        margin-top: 80px;
-        padding: 20px;
-        background: rgba(15,23,42,0.7);
-        border-radius: 12px;
+        border-radius: 16px 16px 0 0;
+        font-size: 0.95rem;
+        color: #94a3b8;
+    }
+
+    .cool-footer strong {
+        color: #67e8f9;
     }
     </style>
 """, unsafe_allow_html=True)
+
+# ────────────────────────────────────────────────
+# Fancy Header
+# ────────────────────────────────────────────────
+st.markdown("""
+    <div class="main-header">
+        <h1>🩺 BreastCare AI</h1>
+        <p>Intelligent Ultrasound Breast Cancer Classifier</p>
+    </div>
+""", unsafe_allow_html=True)
+
+# ────────────────────────────────────────────────
+# Sidebar – improved layout
+# ────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown('<div class="sidebar-title">BreastCare AI</div>', unsafe_allow_html=True)
+    
+    st.image("https://img.icons8.com/fluency/96/000000/breast-cancer-ribbon.png", width=100)
+    
+    st.markdown('<div class="sidebar-info">'
+                '<strong>Powered by:</strong><br>'
+                'Random Forest Classifier<br>'
+                'Trained on BUSI dataset<br>'
+                'Research prototype – 2026'
+                '</div>', unsafe_allow_html=True)
+    
+    st.info("**Important**\n\nThis tool is for educational/research purposes only. "
+            "It is **not** a substitute for professional medical diagnosis.", icon="⚠️")
 
 # ────────────────────────────────────────────────
 # Load model
@@ -164,7 +179,7 @@ def load_model():
 
 model = load_model()
 
-# Feature extraction (unchanged)
+# Feature extraction function (unchanged)
 def extract_features(img):
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img_resized = cv2.resize(img_gray, (224, 224))
@@ -203,103 +218,77 @@ def extract_features(img):
     }])
 
 # ────────────────────────────────────────────────
-# Sidebar
+# Main content – simplified & attractive
 # ────────────────────────────────────────────────
-with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/000000/breast-cancer-ribbon.png", width=90)
-    st.title("BreastCare AI")
-    st.markdown("#### Intelligent Ultrasound Assistant")
-    st.info("Upload a breast ultrasound image to receive an AI-supported classification.\n\n**Disclaimer**: Research prototype — not for clinical diagnosis.")
-    st.markdown("---")
-    st.caption("Trained on BUSI • Random Forest • 2026")
-
-# ────────────────────────────────────────────────
-# Main content – Attractive neon cyan drag & drop
-# ────────────────────────────────────────────────
-st.title("🩺 BreastCare AI Classifier")
-st.markdown("**Upload your ultrasound image and get instant insights**")
-
-# Main attractive drag & drop zone
-st.markdown("""
-<div class="drop-zone">
-    <div class="icon">☁️</div>
-    <h2>Drag & Drop Ultrasound Image</h2>
-    <p class="subtitle">or click Browse files</p>
-    <small class="hint">PNG • JPG • JPEG • Limit 200 MB per file</small>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("### Upload Breast Ultrasound Image")
 
 uploaded_file = st.file_uploader(
-    label="",
+    label="Drag & drop or click to select image",
     type=["png", "jpg", "jpeg"],
     accept_multiple_files=False,
-    label_visibility="collapsed",
-    key="neon_cyan_ultrasound_drop"
+    label_visibility="visible",
+    help="PNG • JPG • JPEG • Max 200 MB • Clear, high-contrast scans work best",
+    key="main_ultrasound_uploader"
 )
 
 if uploaded_file is not None:
-    st.markdown("---")
+    st.success(f"Image uploaded: {uploaded_file.name} ({uploaded_file.size / 1024:.1f} KB)")
     
-    st.subheader("Uploaded Image Preview")
-    st.image(uploaded_file, caption=f"{uploaded_file.name} • {uploaded_file.size / 1024:.1f} KB", use_column_width=True)
+    col1, col2 = st.columns([4, 1])
     
-    st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)
+    with col1:
+        st.image(uploaded_file, caption="Uploaded image preview", use_column_width=True)
     
-    if st.button("Analyze This Image", type="primary", use_container_width=True):
-        with st.status("Processing your ultrasound image...", expanded=True) as status:
-            status.update(label="Loading image...", state="running")
-            img_array = np.frombuffer(uploaded_file.getvalue(), np.uint8)
-            img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-            
-            status.update(label="Extracting features...", state="running")
-            features = extract_features(img)
-            
-            status.update(label="Running prediction...", state="running")
-            pred = model.predict(features)[0]
-            probs = model.predict_proba(features)[0]
-            
-            status.update(label="Complete", state="complete", expanded=False)
-            
-            labels = {0: "Benign", 1: "Malignant", 2: "Normal"}
-            label = labels[pred]
-            conf = probs[pred]
-            
-            if label == "Malignant":
-                cls = "malignant"
-                emoji = "🔴"
-                msg = "Potential concern detected — urgent professional review recommended."
-            elif label == "Benign":
-                cls = "benign"
-                emoji = "🟢"
-                msg = "Likely benign finding — continue routine monitoring."
-            else:
-                cls = "normal"
-                emoji = "✅"
-                msg = "No significant abnormalities observed."
-            
-            st.markdown(f"""
-            <div class="result-card {cls}">
-                <h2 style="margin:0 0 12px 0;">{emoji} {label}</h2>
-                <p style="font-size:1.7rem; margin:10px 0;">Confidence: <strong>{conf:.1%}</strong></p>
-                <p style="color:#cbd5e1;">{msg}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            probs_df = pd.DataFrame({
-                "Class": ["Benign", "Malignant", "Normal"],
-                "Confidence (%)": probs * 100
-            }).set_index("Class")
-            
-            st.subheader("Confidence Breakdown")
-            st.bar_chart(probs_df, color="#22d3ee", height=340)
+    with col2:
+        st.markdown("<br>"*2, unsafe_allow_html=True)
+        if st.button("Analyze Image", type="primary", use_container_width=True):
+            with st.spinner("Analyzing ultrasound image..."):
+                img_array = np.frombuffer(uploaded_file.getvalue(), np.uint8)
+                img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                
+                features = extract_features(img)
+                pred = model.predict(features)[0]
+                probs = model.predict_proba(features)[0]
+                
+                labels = {0: "Benign", 1: "Malignant", 2: "Normal"}
+                label = labels[pred]
+                conf = probs[pred]
+                
+                if label == "Malignant":
+                    cls = "malignant"
+                    emoji = "🔴"
+                    msg = "Potential malignancy detected – urgent specialist review recommended."
+                elif label == "Benign":
+                    cls = "benign"
+                    emoji = "🟢"
+                    msg = "Likely benign lesion – routine follow-up advised."
+                else:
+                    cls = "normal"
+                    emoji = "✅"
+                    msg = "Appears normal – no significant findings."
+                
+                st.markdown(f"""
+                <div class="result-card {cls}">
+                    <h2 style="margin:0;">{emoji} {label}</h2>
+                    <p style="font-size:1.8rem; margin:16px 0;">Confidence: <strong>{conf:.1%}</strong></p>
+                    <p>{msg}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                probs_df = pd.DataFrame({
+                    "Class": ["Benign", "Malignant", "Normal"],
+                    "Confidence (%)": probs * 100
+                }).set_index("Class")
+                
+                st.subheader("Confidence Breakdown")
+                st.bar_chart(probs_df, color="#22d3ee", height=340)
 
-# Footer
-st.markdown("---")
-st.markdown(
-    '<div class="disclaimer">'
-    'This is an educational/research demonstration only. '
-    'It is **not** a medical device and should never replace professional radiological or clinical evaluation. '
-    'Always consult a qualified healthcare provider.'
-    '</div>',
-    unsafe_allow_html=True
-)
+# ────────────────────────────────────────────────
+# Cool animated footer
+# ────────────────────────────────────────────────
+st.markdown("""
+    <div class="cool-footer">
+        <strong>BreastCare AI</strong> • Research Prototype • 2026<br>
+        Trained on BUSI dataset • Not for clinical use • Always consult a radiologist or oncologist
+    </div>
+""", unsafe_allow_html=True)

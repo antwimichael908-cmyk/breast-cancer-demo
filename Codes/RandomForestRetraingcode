@@ -1,0 +1,114 @@
+import os
+import cv2
+import numpy as np
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    precision_score,
+    recall_score,
+    f1_score
+)
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+folder = r'C:\Users\Hulede\PycharmProjects\PythonProject3\new_ultrasound_dataset'
+
+def load_images_from_folder(folder):
+    features = []
+    labels = []
+
+    for label in os.listdir(folder):
+        label_path = os.path.join(folder, label)
+
+        if not os.path.isdir(label_path):
+            continue
+
+        for file in os.listdir(label_path):
+            img_path = os.path.join(label_path, file)
+
+            img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                continue
+
+            img = cv2.resize(img, (128, 128))
+            img_flat = img.flatten()
+
+            features.append(img_flat)
+            labels.append(label)
+
+    return np.array(features), np.array(labels)
+
+
+# Load dataset
+X, y = load_images_from_folder(folder)
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# Load model
+model = joblib.load("best_tuned_rf_breast_ultrasound.pkl")
+
+# Retrain
+model.fit(X_train, y_train)
+
+# Predictions
+y_pred = model.predict(X_test)
+
+# =========================
+# EVALUATION METRICS
+# =========================
+
+accuracy = accuracy_score(y_test, y_pred)
+precision_weighted = precision_score(y_test, y_pred, average='weighted')
+recall_weighted = recall_score(y_test, y_pred, average='weighted')
+f1_weighted = f1_score(y_test, y_pred, average='weighted')
+
+print("========== OVERALL METRICS ==========")
+print(f"Accuracy: {accuracy:.4f}")
+print(f"Weighted Precision: {precision_weighted:.4f}")
+print(f"Weighted Recall: {recall_weighted:.4f}")
+print(f"Weighted F1-Score: {f1_weighted:.4f}")
+
+print("\n========== PER-CLASS METRICS ==========")
+report = classification_report(y_test, y_pred, output_dict=True)
+
+for label in model.classes_:
+    print(f"\nClass: {label}")
+    print(f"Precision: {report[label]['precision']:.4f}")
+    print(f"Recall: {report[label]['recall']:.4f}")
+    print(f"F1-Score: {report[label]['f1-score']:.4f}")
+
+# =========================
+# CONFUSION MATRIX
+# =========================
+
+cm = confusion_matrix(y_test, y_pred)
+
+print("\n========== CONFUSION MATRIX ==========")
+print(cm)
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt='d',
+    cmap='Blues',
+    xticklabels=model.classes_,
+    yticklabels=model.classes_
+)
+
+plt.xlabel("Predicted Label")
+plt.ylabel("True Label")
+plt.title("Confusion Matrix - Random Forest (Ultrasound)")
+plt.tight_layout()
+plt.show()
+
+# Save updated model
+joblib.dump(model, "best_tuned_rf_breast_ultrasound.pkl")
+
+print("\nModel retrained and evaluated successfully!")

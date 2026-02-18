@@ -111,13 +111,13 @@ st.markdown("""
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/000000/breast-cancer-ribbon.png", width=80)
     st.title("BreastCare AI")
-    
+   
     st.markdown("**Purpose**")
     st.caption("AI-supported classification of breast ultrasound images")
-    
+   
     st.markdown("**Model**")
     st.caption("Random Forest • Trained on BUSI dataset")
-    
+   
     st.info("**Research prototype only**\n\nNot for clinical diagnosis.", icon="⚠️")
 
 # ────────────────────────────────────────────────
@@ -137,21 +137,21 @@ model = load_model()
 def extract_features(img):
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img_resized = cv2.resize(img_gray, (224, 224))
-    
+   
     mean_intensity = np.mean(img_resized)
-    std_intensity  = np.std(img_resized)
-    
+    std_intensity = np.std(img_resized)
+   
     distances = [1, 2, 3]
-    angles    = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+    angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
     glcm = graycomatrix(img_resized, distances, angles, levels=256, symmetric=True, normed=True)
-    
+   
     texture_feats = {}
     for prop in ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'ASM']:
         vals = graycoprops(glcm, prop)
         for i, d in enumerate(distances):
             for j, a in enumerate(angles):
                 texture_feats[f"{prop}_d{d}_a{j:.2f}"] = vals[i, j]
-    
+   
     _, thresh = cv2.threshold(img_resized, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     area = perimeter = circularity = 0.0
@@ -161,7 +161,7 @@ def extract_features(img):
         perimeter = cv2.arcLength(cnt, True)
         if perimeter > 0:
             circularity = 4 * np.pi * area / (perimeter ** 2)
-    
+   
     return pd.DataFrame([{
         'mean_intensity': mean_intensity,
         'std_intensity': std_intensity,
@@ -177,32 +177,36 @@ def extract_features(img):
 st.markdown("### Upload Breast Ultrasound Image")
 
 uploaded_file = st.file_uploader(
-    label="**Drag and drop ultrasound image here** or click Browse files",
+    label="**Drag and drop ultrasound image here** or **click Browse files**",
     type=["png", "jpg", "jpeg"],
     accept_multiple_files=False,
-    help="Supported formats: PNG, JPG, JPEG • Recommended: clear, high-contrast scans • Max 200 MB per file",
+    help="""Supported formats: PNG, JPG, JPEG  
+    • Drag image directly onto this area  
+    • Or click 'Browse files' button  
+    • Max size: 200 MB  
+    • Best results with clear, high-contrast scans""",
     key="main_ultrasound_uploader"
 )
 
 if uploaded_file is not None:
     st.markdown("---")
-    
+   
     st.subheader("Image Preview")
     st.image(uploaded_file, caption=f"{uploaded_file.name} • {uploaded_file.size / 1024:.1f} KB", use_column_width=True)
-    
+   
     if st.button("Analyze Image", type="primary", use_container_width=True):
         with st.spinner("Analyzing image..."):
             img_array = np.frombuffer(uploaded_file.getvalue(), np.uint8)
             img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-            
+           
             features = extract_features(img)
             pred = model.predict(features)[0]
             probs = model.predict_proba(features)[0]
-            
+           
             labels = {0: "Benign", 1: "Malignant", 2: "Normal"}
             label = labels[pred]
             conf = probs[pred]
-            
+           
             if label == "Malignant":
                 cls = "malignant"
                 emoji = "🔴"
@@ -215,7 +219,7 @@ if uploaded_file is not None:
                 cls = "normal"
                 emoji = "✅"
                 msg = "Appears normal – no significant findings."
-            
+           
             st.markdown(f"""
             <div class="result-card {cls}">
                 <h2 style="margin:0 0 12px 0;">{emoji} {label}</h2>
@@ -225,12 +229,12 @@ if uploaded_file is not None:
                 <p>{msg}</p>
             </div>
             """, unsafe_allow_html=True)
-            
+           
             probs_df = pd.DataFrame({
                 "Class": ["Benign", "Malignant", "Normal"],
                 "Confidence (%)": probs * 100
             }).set_index("Class")
-            
+           
             st.subheader("Confidence Breakdown")
             st.bar_chart(probs_df, color="#3b82f6", height=300)
 

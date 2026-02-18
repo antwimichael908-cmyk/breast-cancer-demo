@@ -8,6 +8,8 @@ import numpy as np
 from skimage.feature import graycomatrix, graycoprops
 import base64
 from pathlib import Path
+import base64
+from pathlib import Path
 
 # ────────────────────────────────────────────────
 # Page config + favicon
@@ -22,6 +24,51 @@ st.set_page_config(
 # ────────────────────────────────────────────────
 # Helper: Load local image as base64 for CSS background
 # ────────────────────────────────────────────────
+
+
+# ────────────────────────────────────────────────
+# Load local background image as base64
+# ────────────────────────────────────────────────
+def get_base64_of_file(file_path):
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+# Use this filename (must match exactly what you saved)
+BG_FILENAME = "background.jpg"
+
+try:
+    bg_base64 = get_base64_of_file(BG_FILENAME)
+    bg_data_url = f"data:image/jpeg;base64,{bg_base64}"
+except FileNotFoundError:
+    st.warning("Background image not found — using fallback color")
+    bg_data_url = "linear-gradient(135deg, #e0f2fe, #bfdbfe)"  # light blue fallback
+
+# ────────────────────────────────────────────────
+# Apply background with overlay for readability
+# ────────────────────────────────────────────────
+st.markdown(f"""
+    <style>
+    [data-testid="stAppViewContainer"] {{
+        background-image: 
+            linear-gradient(rgba(245, 245, 250, 0.84), rgba(245, 245, 250, 0.88)),
+            url("{bg_data_url}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+
+    [data-testid="stHeader"] {{
+        background: rgba(0,0,0,0);
+    }}
+
+    /* Optional: make sidebar pop more */
+    section[data-testid="stSidebar"] > div:first-child {{
+        background: linear-gradient(135deg, rgba(30,58,138,0.82), rgba(59,130,246,0.65));
+        backdrop-filter: blur(8px);
+    }}
+    </style>
+""", unsafe_allow_html=True)
 def get_base64_of_bin_file(bin_file):
     with open(bin_file, 'rb') as f:
         data = f.read()
@@ -40,17 +87,24 @@ except FileNotFoundError:
 # ────────────────────────────────────────────────
 # Modern & lively CSS with background + overlay + animations
 # ────────────────────────────────────────────────
+# Use this if image is in repo root
+BG_IMAGE = "bg-ultrasound.jpg"          # your saved filename
+
+# or use direct link
+# BG_IMAGE = "https://i.postimg.cc/your-real-link.jpg"
+
 st.markdown(f"""
     <style>
-    /* Main container with background image + subtle overlay for readability */
     [data-testid="stAppViewContainer"] {{
-        background-image: linear-gradient(rgba(240, 248, 255, 0.78), rgba(240, 248, 255, 0.82)),
-                          url("{bg_url}");
+        background: linear-gradient(rgba(248, 250, 255, 0.86), rgba(240, 248, 255, 0.90)),
+                    url('{BG_IMAGE if BG_IMAGE.startswith("http") else f"data:image/jpeg;base64,{get_base64_image(BG_IMAGE)}"}');
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
-        background-repeat: no-repeat;
     }}
+    </style>
+""", unsafe_allow_html=True)
+    
 
     /* Header / top bar transparent */
     [data-testid="stHeader"] {{

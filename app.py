@@ -237,7 +237,7 @@ st.markdown("""
     overflow: hidden;
 }
 
-.upload-box:hover {
+ .upload-box:hover {
     border-color: #67e8f9;
     box-shadow: 0 8px 35px rgba(103, 232, 249, 0.35);
     transform: translateY(-4px);

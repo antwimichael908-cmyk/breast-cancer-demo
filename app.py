@@ -218,14 +218,95 @@ def extract_features(img):
 # ────────────────────────────────────────────────
 # Main content – improved upload area
 # ────────────────────────────────────────────────
-st.markdown("### Upload Breast Ultrasound Image")
+
 
 st.markdown("""
+<style>
+.upload-box {
+    padding: 60px 40px;
+    border: 3px dashed #22d3ee;
+    border-radius: 16px;
+    text-align: center;
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(8px);
+    margin: 32px auto;
+    max-width: 800px;
+    box-shadow: 0 4px 25px rgba(34, 211, 238, 0.15);
+    transition: all 0.35s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-box:hover {
+    border-color: #67e8f9;
+    box-shadow: 0 8px 35px rgba(103, 232, 249, 0.35);
+    transform: translateY(-4px);
+}
+
+.upload-box::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border: 3px dashed #22d3ee;
+    border-radius: 18px;
+    opacity: 0.5;
+    animation: softPulse 4s infinite alternate;
+    pointer-events: none;
+}
+
+@keyframes softPulse {
+    0% { opacity: 0.35; transform: scale(1); }
+    100% { opacity: 0.75; transform: scale(1.03); }
+}
+
+.upload-box .icon {
+    font-size: 3.8rem;
+    margin-bottom: 20px;
+    color: #67e8f9;
+}
+
+.upload-box h3 {
+    margin: 0 0 16px 0;
+    color: #a5f3fc;
+    font-size: 2rem;
+    font-weight: 600;
+    text-shadow: 0 0 10px rgba(167, 243, 252, 0.4);
+}
+
+.upload-box .or-text {
+    font-size: 1.25rem;
+    color: #cbd5e1;
+    margin: 12px 0;
+    font-weight: 500;
+}
+
+.upload-box .hint {
+    font-size: 1rem;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+</style>
+
 <div class="upload-box">
+    <div class="icon">🩻</div>
     <h3>Drag & Drop Ultrasound Image</h3>
-    <p>or click Browse files</p>
-    <small>PNG • JPG • JPEG • Max 200 MB per file</small>
+    <p class="or-text">or click Browse files</p>
+    <div class="hint">
+        Supported formats: PNG • JPG • JPEG<br>
+        Recommended: Clear, high-contrast scans<br>
+        Limit: 200 MB per file
+    </div>
 </div>
+""", unsafe_allow_html=True)
+
+# The actual uploader (invisible label, full width)
+uploaded_file = st.file_uploader(
+    label="",
+    type=["png", "jpg", "jpeg"],
+    accept_multiple_files=False,
+    label_visibility="collapsed",
+    key="styled_ultrasound_uploader"
+)
 """, unsafe_allow_html=True)
 
 uploaded_file = st.file_uploader(
